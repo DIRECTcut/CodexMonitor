@@ -16,6 +16,14 @@ const emptyState: LocalUsageState = {
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
+function isMissingTauriInvokeError(error: unknown) {
+  return (
+    error instanceof TypeError &&
+    (error.message.includes("reading 'invoke'") ||
+      error.message.includes('reading "invoke"'))
+  );
+}
+
 export function useLocalUsage(enabled: boolean, workspacePath: string | null) {
   const [state, setState] = useState<LocalUsageState>(emptyState);
   const requestIdRef = useRef(0);
@@ -49,6 +57,10 @@ export function useLocalUsage(enabled: boolean, workspacePath: string | null) {
       })
       .catch((err) => {
         if (requestIdRef.current !== requestId || !enabledRef.current) {
+          return;
+        }
+        if (isMissingTauriInvokeError(err)) {
+          setState({ snapshot: null, isLoading: false, error: null });
           return;
         }
         const message = err instanceof Error ? err.message : String(err);
