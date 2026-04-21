@@ -1,3 +1,5 @@
+#![cfg(feature = "app")]
+
 #[cfg(desktop)]
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Manager;
@@ -43,6 +45,15 @@ mod workspaces;
 #[cfg(desktop)]
 static EXIT_CLEANUP_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
+#[cfg(target_os = "linux")]
+fn is_wsl() -> bool {
+    std::fs::read_to_string("/proc/sys/kernel/osrelease")
+        .ok()
+        .or_else(|| std::fs::read_to_string("/proc/version").ok())
+        .map(|value| value.to_ascii_lowercase().contains("microsoft"))
+        .unwrap_or(false)
+}
+
 #[cfg(desktop)]
 fn keep_daemon_running_after_close(app_handle: &tauri::AppHandle) -> bool {
     let state = app_handle.state::<state::AppState>();
@@ -79,8 +90,14 @@ pub fn run() {
             .unwrap_or(false)
             || std::env::var_os("WAYLAND_DISPLAY").is_some();
         let has_nvidia = std::path::Path::new("/proc/driver/nvidia/version").exists();
+        let is_wsl = is_wsl();
         if is_wayland && has_nvidia && std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none()
         {
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        }
+        // WSLg can advertise a Wayland/EGL path that produces repeated Zink/EGL failures
+        // for WebKitGTK. Prefer the safer renderer path there unless the user overrides it.
+        if is_wayland && is_wsl && std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
             std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
         }
         let is_x11 = !is_wayland && std::env::var_os("DISPLAY").is_some();

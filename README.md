@@ -51,6 +51,7 @@ CodexMonitor is a Tauri app for orchestrating multiple Codex agents across local
 - Node.js + npm
 - Rust toolchain (stable)
 - CMake (required for native dependencies; dictation/Whisper uses it)
+- On Linux desktop builds: `pkg-config`, GTK 3 dev files, WebKitGTK 4.1 dev files, ALSA dev files, plus `clang`/`libclang`
 - LLVM/Clang (required on Windows to build dictation dependencies via bindgen)
 - Codex CLI installed and available as `codex` in `PATH` (or configure a custom Codex binary in app/workspace settings)
 - Git CLI (used for worktree operations)
@@ -114,6 +115,8 @@ cd src-tauri
 cargo build --bin codex_monitor_daemon --bin codex_monitor_daemonctl
 ```
 
+The headless daemon bins intentionally build without the desktop `app` feature, so this command should work on machines that do not have GTK/WebKit development packages installed.
+
 Examples:
 
 ```bash
@@ -137,6 +140,44 @@ Useful overrides:
 - `--token <token>`: token override
 - `--daemon-path <path>`: explicit `codex-monitor-daemon` binary path
 - `--json`: machine-readable output
+
+### Linux Desktop Service (systemd --user)
+
+Use this when you want `systemd --user` to manage CodexMonitor from a managed checkout in a logged-in Linux session.
+
+Install or update the user service definition:
+
+```bash
+../codex-monitor/codex-monitor-entrypoint.sh install \
+  --upstream-git-url <git-url> \
+  --git-ref <branch-or-commit> \
+  --checkout-dir <local-path>
+```
+
+The entrypoint writes `~/.config/systemd/user/codex-monitor.service` but does not enable or start it automatically.
+The script itself lives in the sibling `../codex-monitor/` directory.
+When the service starts, it upserts the repository at the requested checkout path, fetches `origin`, resolves the requested ref, checks out the target commit, and runs `src-tauri/target/release/codex-monitor` from that checkout.
+
+Common commands:
+
+```bash
+systemctl --user start codex-monitor.service
+systemctl --user enable codex-monitor.service
+../codex-monitor/codex-monitor-entrypoint.sh status
+../codex-monitor/codex-monitor-entrypoint.sh logs --follow
+../codex-monitor/codex-monitor-entrypoint.sh uninstall
+```
+
+Notes:
+
+- This manages the visible desktop app `src-tauri/target/release/codex-monitor`, not the headless `codex_monitor_daemon`.
+- The entrypoint does not build the app. The release binary must already exist in the managed checkout at the requested ref.
+- The service is intended for an active graphical Linux user session.
+- Optional defaults can be set in `../codex-monitor/.codex-monitor.env`:
+  - `UPSTREAM_GIT_URL`
+  - `GIT_REF`
+  - `CHECKOUT_DIR`
+  - `SYSTEMD_DIR`
 
 ### iOS Prerequisites
 
@@ -254,7 +295,8 @@ Recommended validation commands:
 npm run lint
 npm run test
 npm run typecheck
-cd src-tauri && cargo check
+cd src-tauri && cargo check --features app
+cd src-tauri && cargo check --bin codex_monitor_daemon --bin codex_monitor_daemonctl
 ```
 
 ## Codebase Navigation
