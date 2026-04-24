@@ -419,6 +419,252 @@ describe("Messages", () => {
 
     expect(screen.queryByRole("button", { name: "Fork thread" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Rewind to here" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit message" })).toBeNull();
+  });
+
+  it("renders edit only on the latest user message", () => {
+    const onSubmitEditMessage = vi.fn();
+    const items: ConversationItem[] = [
+      {
+        id: "user-turn-1",
+        turnId: "turn-1",
+        kind: "message",
+        role: "user",
+        text: "Initial prompt",
+      },
+      {
+        id: "assistant-turn-1",
+        turnId: "turn-1",
+        kind: "message",
+        role: "assistant",
+        text: "Initial reply",
+      },
+      {
+        id: "user-turn-2",
+        turnId: "turn-2",
+        kind: "message",
+        role: "user",
+        text: "Latest prompt",
+      },
+      {
+        id: "assistant-turn-2",
+        turnId: "turn-2",
+        kind: "message",
+        role: "assistant",
+        text: "Latest reply",
+      },
+    ];
+
+    const { container } = render(
+      <Messages
+        items={items}
+        threadId="thread-1"
+        workspaceId="ws-1"
+        isThinking={false}
+        openTargets={[]}
+        selectedOpenAppId=""
+        onSubmitEditMessage={onSubmitEditMessage}
+      />,
+    );
+
+    const messages = Array.from(container.querySelectorAll(".message"));
+    expect(messages[0]?.querySelector(".message-edit-button")).toBeNull();
+    expect(messages[1]?.querySelector(".message-edit-button")).toBeNull();
+    expect(messages[2]?.querySelector(".message-edit-button")).toBeTruthy();
+    expect(messages[3]?.querySelector(".message-edit-button")).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Edit message" })).toHaveLength(1);
+  });
+
+  it("keeps edit on the newest user bubble even when the assistant reply has a newer turn id", () => {
+    const onSubmitEditMessage = vi.fn();
+    const items: ConversationItem[] = [
+      {
+        id: "user-1",
+        turnId: "turn-1",
+        kind: "message",
+        role: "user",
+        text: "1",
+      },
+      {
+        id: "assistant-1",
+        turnId: "turn-2",
+        kind: "message",
+        role: "assistant",
+        text: "Reply to 1",
+      },
+      {
+        id: "user-2",
+        turnId: "turn-3",
+        kind: "message",
+        role: "user",
+        text: "2",
+      },
+      {
+        id: "assistant-2",
+        turnId: "turn-4",
+        kind: "message",
+        role: "assistant",
+        text: "Reply to 2",
+      },
+      {
+        id: "user-3",
+        turnId: "turn-5",
+        kind: "message",
+        role: "user",
+        text: "3",
+      },
+      {
+        id: "assistant-3",
+        turnId: "turn-6",
+        kind: "message",
+        role: "assistant",
+        text: "Reply to 3",
+      },
+    ];
+
+    const { container } = render(
+      <Messages
+        items={items}
+        threadId="thread-1"
+        workspaceId="ws-1"
+        isThinking={false}
+        openTargets={[]}
+        selectedOpenAppId=""
+        onSubmitEditMessage={onSubmitEditMessage}
+      />,
+    );
+
+    const messages = Array.from(container.querySelectorAll(".message"));
+    expect(messages[0]?.querySelector(".message-edit-button")).toBeNull();
+    expect(messages[2]?.querySelector(".message-edit-button")).toBeNull();
+    expect(messages[4]?.querySelector(".message-edit-button")).toBeTruthy();
+    expect(messages[5]?.querySelector(".message-edit-button")).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Edit message" })).toHaveLength(1);
+  });
+
+  it("opens an inline editor for the latest user message", async () => {
+    const onSubmitEditMessage = vi.fn().mockResolvedValue(true);
+    const items: ConversationItem[] = [
+      {
+        id: "user-turn-2",
+        turnId: "turn-2",
+        kind: "message",
+        role: "user",
+        text: "Latest prompt",
+      },
+      {
+        id: "assistant-turn-2",
+        turnId: "turn-2",
+        kind: "message",
+        role: "assistant",
+        text: "Latest reply",
+      },
+    ];
+
+    render(
+      <Messages
+        items={items}
+        threadId="thread-1"
+        workspaceId="ws-1"
+        isThinking={false}
+        openTargets={[]}
+        selectedOpenAppId=""
+        onSubmitEditMessage={onSubmitEditMessage}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit message" }));
+
+    const editor = await screen.findByRole("textbox", { name: "Edit message" });
+    expect((editor as HTMLTextAreaElement).value).toBe("Latest prompt");
+    expect(askMock).not.toHaveBeenCalled();
+    expect(onSubmitEditMessage).not.toHaveBeenCalled();
+  });
+
+  it("saves inline edits and shows a loading state while save is pending", async () => {
+    let resolveEdit: ((value: boolean) => void) | null = null;
+    const onSubmitEditMessage = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveEdit = resolve;
+        }),
+    );
+    const items: ConversationItem[] = [
+      {
+        id: "user-turn-2",
+        turnId: "turn-2",
+        kind: "message",
+        role: "user",
+        text: "Latest prompt",
+      },
+    ];
+
+    render(
+      <Messages
+        items={items}
+        threadId="thread-1"
+        workspaceId="ws-1"
+        isThinking={false}
+        openTargets={[]}
+        selectedOpenAppId=""
+        onSubmitEditMessage={onSubmitEditMessage}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit message" }));
+    const editor = await screen.findByRole("textbox", { name: "Edit message" });
+    fireEvent.change(editor, { target: { value: "Updated prompt" } });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => {
+      expect(onSubmitEditMessage).toHaveBeenCalledWith(items[0], "Updated prompt");
+    });
+    expect(screen.getByRole("button", { name: "Saving" }).hasAttribute("disabled")).toBe(
+      true,
+    );
+
+    await act(async () => {
+      resolveEdit?.(true);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("textbox", { name: "Edit message" })).toBeNull();
+    });
+  });
+
+  it("keeps the inline editor open when saving fails", async () => {
+    const onSubmitEditMessage = vi.fn().mockResolvedValue(false);
+    const items: ConversationItem[] = [
+      {
+        id: "user-turn-2",
+        turnId: "turn-2",
+        kind: "message",
+        role: "user",
+        text: "Latest prompt",
+      },
+    ];
+
+    render(
+      <Messages
+        items={items}
+        threadId="thread-1"
+        workspaceId="ws-1"
+        isThinking={false}
+        openTargets={[]}
+        selectedOpenAppId=""
+        onSubmitEditMessage={onSubmitEditMessage}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit message" }));
+    const editor = await screen.findByRole("textbox", { name: "Edit message" });
+    fireEvent.change(editor, { target: { value: "Still open" } });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => {
+      expect(onSubmitEditMessage).toHaveBeenCalledWith(items[0], "Still open");
+    });
+    expect(screen.getByRole("textbox", { name: "Edit message" })).toBeTruthy();
   });
 
   it("hides the fork action when workspace or thread context is missing", () => {

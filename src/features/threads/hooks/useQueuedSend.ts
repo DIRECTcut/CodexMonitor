@@ -7,6 +7,7 @@ import type {
   SendMessageResult,
   WorkspaceInfo,
 } from "@/types";
+import type { SendMessageOptions } from "./threadMessagingHelpers";
 
 type UseQueuedSendOptions = {
   activeThreadId: string | null;
@@ -34,6 +35,7 @@ type UseQueuedSendOptions = {
     threadId: string,
     text: string,
     images?: string[],
+    options?: SendMessageOptions,
   ) => Promise<void | SendMessageResult>;
   startFork: (text: string) => Promise<void>;
   startReview: (text: string) => Promise<void>;

@@ -458,6 +458,9 @@ function buildPrimarySurface({
       onOpenThreadLink: handleOpenThreadLink,
       onForkThread: handleForkThread,
       onRollbackThread: handleRollbackThread,
+      onSubmitEditMessage: composerWorkspaceState.canInsertComposerText
+        ? composerWorkspaceState.submitEditedLastMessage
+        : undefined,
       onQuoteMessage: composerWorkspaceState.canInsertComposerText
         ? composerWorkspaceState.handleInsertComposerText
         : undefined,
@@ -633,6 +636,7 @@ function buildPrimarySurface({
           onCheckoutBranch: gitState.handleCheckoutBranch,
           onCreateBranch: gitState.handleCreateBranch,
           canCopyThread: activeItems.length > 0,
+          threadId: activeThreadId ?? null,
           onCopyThread: handleCopyThread,
           onToggleTerminal: handleToggleTerminalWithFocus,
           isTerminalOpen: terminalOpen,

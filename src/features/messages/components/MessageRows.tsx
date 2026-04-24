@@ -10,8 +10,10 @@ import FileDiffIcon from "lucide-react/dist/esm/icons/file-diff";
 import FileText from "lucide-react/dist/esm/icons/file-text";
 import GitFork from "lucide-react/dist/esm/icons/git-fork";
 import Image from "lucide-react/dist/esm/icons/image";
+import Pencil from "lucide-react/dist/esm/icons/pencil";
 import Quote from "lucide-react/dist/esm/icons/quote";
 import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw";
+import Save from "lucide-react/dist/esm/icons/save";
 import Search from "lucide-react/dist/esm/icons/search";
 import Terminal from "lucide-react/dist/esm/icons/terminal";
 import Users from "lucide-react/dist/esm/icons/users";
@@ -62,6 +64,8 @@ type MessageRowProps = MarkdownFileLinkProps & {
   item: Extract<ConversationItem, { kind: "message" }>;
   isCopied: boolean;
   onCopy: (item: Extract<ConversationItem, { kind: "message" }>) => void;
+  canEdit?: boolean;
+  onSubmitEdit?: (text: string) => Promise<boolean> | boolean;
   onFork?: () => Promise<void> | void;
   onRollback?: () => Promise<void> | void;
   onQuote?: (item: Extract<ConversationItem, { kind: "message" }>, selectedText?: string) => void;
@@ -375,6 +379,8 @@ export const MessageRow = memo(function MessageRow({
   item,
   isCopied,
   onCopy,
+  canEdit = false,
+  onSubmitEdit,
   onFork,
   onRollback,
   onQuote,
@@ -386,10 +392,14 @@ export const MessageRow = memo(function MessageRow({
   onOpenThreadLink,
 }: MessageRowProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editDraft, setEditDraft] = useState(item.text);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isForking, setIsForking] = useState(false);
   const [isRewinding, setIsRewinding] = useState(false);
   const bubbleRef = useRef<HTMLDivElement | null>(null);
   const selectionSnapshotRef = useRef<string | null>(null);
+  const editTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const hasText = item.text.trim().length > 0;
   const imageItems = useMemo(() => {
     if (!item.images || item.images.length === 0) {
@@ -410,6 +420,7 @@ export const MessageRow = memo(function MessageRow({
     hasText &&
     imageItems.length === 0 &&
     isStandaloneMarkdownTable(item.text);
+  const canSaveInlineEdit = editDraft.trim().length > 0 || imageItems.length > 0;
 
   const getSelectedMessageText = useCallback(() => {
     const bubble = bubbleRef.current;
@@ -433,7 +444,7 @@ export const MessageRow = memo(function MessageRow({
       const element = node instanceof Element ? node : node.parentElement;
       return Boolean(
         element?.closest(
-          ".message-fork-button, .message-rewind-button, .message-quote-button, .message-copy-button",
+          ".message-edit-button, .message-fork-button, .message-rewind-button, .message-quote-button, .message-copy-button",
         ),
       );
     };
@@ -454,7 +465,7 @@ export const MessageRow = memo(function MessageRow({
   }, [getSelectedMessageText, item, onQuote]);
 
   const handleFork = useCallback(async () => {
-    if (!onFork || isForking || isRewinding) {
+    if (!onFork || isEditing || isSavingEdit || isForking || isRewinding) {
       return;
     }
     const confirmed = await ask(
@@ -479,10 +490,10 @@ export const MessageRow = memo(function MessageRow({
     } finally {
       setIsForking(false);
     }
-  }, [isForking, isRewinding, onFork]);
+  }, [isEditing, isForking, isRewinding, isSavingEdit, onFork]);
 
   const handleRollback = useCallback(async () => {
-    if (!onRollback || isForking || isRewinding) {
+    if (!onRollback || isEditing || isSavingEdit || isForking || isRewinding) {
       return;
     }
     const confirmed = await ask(
@@ -507,7 +518,60 @@ export const MessageRow = memo(function MessageRow({
     } finally {
       setIsRewinding(false);
     }
-  }, [isForking, isRewinding, onRollback]);
+  }, [isEditing, isForking, isRewinding, isSavingEdit, onRollback]);
+
+  const handleEdit = useCallback(async () => {
+    if (!canEdit || isEditing || isSavingEdit || isForking || isRewinding) {
+      return;
+    }
+    setEditDraft(item.text);
+    setIsEditing(true);
+  }, [canEdit, isEditing, isForking, isRewinding, isSavingEdit, item.text]);
+
+  const handleCancelEdit = useCallback(() => {
+    if (isSavingEdit) {
+      return;
+    }
+    setEditDraft(item.text);
+    setIsEditing(false);
+  }, [isSavingEdit, item.text]);
+
+  const handleSaveEdit = useCallback(async () => {
+    if (!onSubmitEdit || isSavingEdit || !canSaveInlineEdit) {
+      return;
+    }
+    const result = onSubmitEdit(editDraft);
+    if (!(result instanceof Promise)) {
+      if (result) {
+        setIsEditing(false);
+      }
+      return;
+    }
+    setIsSavingEdit(true);
+    try {
+      const didSave = await result;
+      if (didSave) {
+        setIsEditing(false);
+      }
+    } finally {
+      setIsSavingEdit(false);
+    }
+  }, [canSaveInlineEdit, editDraft, isSavingEdit, onSubmitEdit]);
+
+  useEffect(() => {
+    if (!isEditing) {
+      return;
+    }
+    setEditDraft(item.text);
+    requestAnimationFrame(() => {
+      const textarea = editTextareaRef.current;
+      if (!textarea) {
+        return;
+      }
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    });
+  }, [isEditing, item.text]);
 
   return (
     <div className={`message ${item.role}`}>
@@ -522,7 +586,62 @@ export const MessageRow = memo(function MessageRow({
             hasText={hasText}
           />
         )}
-        {hasText && (
+        {isEditing ? (
+          <div className="message-inline-edit">
+            <textarea
+              ref={editTextareaRef}
+              className="message-inline-edit-input"
+              value={editDraft}
+              onChange={(event) => setEditDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                  event.preventDefault();
+                  void handleSaveEdit();
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  handleCancelEdit();
+                }
+              }}
+              rows={Math.max(3, item.text.split("\n").length)}
+              aria-label="Edit message"
+              disabled={isSavingEdit}
+            />
+            {item.images?.length ? (
+              <div className="message-inline-edit-note">
+                Attached images will be kept when you save.
+              </div>
+            ) : null}
+            <div className="message-inline-edit-actions">
+              <button
+                type="button"
+                className="ghost message-action-button"
+                onClick={handleCancelEdit}
+                disabled={isSavingEdit}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary message-inline-edit-save"
+                onClick={() => void handleSaveEdit()}
+                disabled={isSavingEdit || !canSaveInlineEdit}
+              >
+                {isSavingEdit ? (
+                  <>
+                    <span className="working-spinner" aria-hidden />
+                    Saving
+                  </>
+                ) : (
+                  <>
+                    <Save size={14} aria-hidden />
+                    Save
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        ) : hasText ? (
           <Markdown
             value={item.text}
             className="markdown"
@@ -534,7 +653,7 @@ export const MessageRow = memo(function MessageRow({
             onOpenFileLinkMenu={onOpenFileLinkMenu}
             onOpenThreadLink={onOpenThreadLink}
           />
-        )}
+        ) : null}
         {lightboxIndex !== null && imageItems.length > 0 && (
           <ImageLightbox
             images={imageItems}
@@ -542,8 +661,22 @@ export const MessageRow = memo(function MessageRow({
             onClose={() => setLightboxIndex(null)}
           />
         )}
-        {(onFork || onRollback || onQuote || hasText) && (
+        {!isEditing && (canEdit || onFork || onRollback || onQuote || hasText) && (
           <div className="message-actions">
+            {canEdit && (
+              <button
+                type="button"
+                className="ghost message-action-button message-edit-button ds-tooltip-trigger"
+                onClick={() => void handleEdit()}
+                aria-label="Edit message"
+                title="Edit message"
+                data-tooltip="Edit message"
+                data-tooltip-placement="bottom"
+                disabled={isSavingEdit || isForking || isRewinding}
+              >
+                <Pencil size={14} aria-hidden />
+              </button>
+            )}
             {onFork && hasText && (
               <button
                 type="button"
@@ -553,7 +686,7 @@ export const MessageRow = memo(function MessageRow({
                 onClick={() => void handleFork()}
                 aria-label={isForking ? "Forking thread" : "Fork thread"}
                 title={isForking ? "Forking thread" : "Fork thread"}
-                disabled={isForking || isRewinding}
+                disabled={isSavingEdit || isForking || isRewinding}
               >
                 {isForking ? (
                   <span className="working-spinner" aria-hidden />
@@ -571,7 +704,7 @@ export const MessageRow = memo(function MessageRow({
                 onClick={() => void handleRollback()}
                 aria-label={isRewinding ? "Rewinding conversation" : "Rewind to here"}
                 title={isRewinding ? "Rewinding conversation" : "Rewind to here"}
-                disabled={isForking || isRewinding}
+                disabled={isSavingEdit || isForking || isRewinding}
               >
                 {isRewinding ? (
                   <span className="working-spinner" aria-hidden />
@@ -593,7 +726,7 @@ export const MessageRow = memo(function MessageRow({
                 onClick={handleQuote}
                 aria-label="Quote message"
                 title="Quote message"
-                disabled={isForking || isRewinding}
+                disabled={isSavingEdit || isForking || isRewinding}
               >
                 <Quote size={14} aria-hidden />
               </button>
@@ -606,7 +739,7 @@ export const MessageRow = memo(function MessageRow({
               onClick={() => onCopy(item)}
               aria-label="Copy message"
               title="Copy message"
-              disabled={isForking || isRewinding}
+              disabled={isSavingEdit || isForking || isRewinding}
             >
               <span className="message-copy-icon" aria-hidden>
                 <Copy className="message-copy-icon-copy" size={14} />

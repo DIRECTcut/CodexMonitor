@@ -47,6 +47,10 @@ type MessagesProps = {
   onPlanSubmitChanges?: (changes: string) => void;
   onOpenThreadLink?: (threadId: string, workspaceId?: string | null) => void;
   onQuoteMessage?: (text: string) => void;
+  onSubmitEditMessage?: (
+    item: Extract<ConversationItem, { kind: "message" }>,
+    text: string,
+  ) => Promise<boolean> | boolean;
   onForkThread?: () => Promise<void> | void;
   onRollbackThread?: (turnId: string, numTurns: number) => Promise<void> | void;
 };
@@ -72,6 +76,7 @@ export const Messages = memo(function Messages({
   onPlanSubmitChanges,
   onOpenThreadLink,
   onQuoteMessage,
+  onSubmitEditMessage,
   onForkThread,
   onRollbackThread,
 }: MessagesProps) {
@@ -98,6 +103,15 @@ export const Messages = memo(function Messages({
     for (let index = items.length - 1; index >= 0; index -= 1) {
       const item = items[index];
       if (item.kind === "message" && item.role === "assistant") {
+        return item.id;
+      }
+    }
+    return null;
+  })();
+  const latestUserMessageId = (() => {
+    for (let index = items.length - 1; index >= 0; index -= 1) {
+      const item = items[index];
+      if (item.kind === "message" && item.role === "user") {
         return item.id;
       }
     }
@@ -176,6 +190,13 @@ export const Messages = memo(function Messages({
         !isThinking &&
         item.role === "assistant" &&
         item.id === latestAssistantMessageId;
+      const canEdit =
+        Boolean(onSubmitEditMessage) &&
+        Boolean(threadId) &&
+        Boolean(workspaceId) &&
+        !isThinking &&
+        item.role === "user" &&
+        item.id === latestUserMessageId;
       const itemTurnIndex =
         item.turnId && turnIndexById.has(item.turnId)
           ? turnIndexById.get(item.turnId) ?? -1
@@ -197,6 +218,12 @@ export const Messages = memo(function Messages({
           item={item}
           isCopied={isCopied}
           onCopy={handleCopyMessage}
+          canEdit={canEdit}
+          onSubmitEdit={
+            canEdit && onSubmitEditMessage
+              ? (text) => onSubmitEditMessage(item, text)
+              : undefined
+          }
           onFork={canFork ? onForkThread : undefined}
           onRollback={
             canRollback && item.turnId && onRollbackThread

@@ -21,6 +21,7 @@ import { useMenuController } from "../hooks/useMenuController";
 
 type MainHeaderProps = {
   workspace: WorkspaceInfo;
+  threadId?: string | null;
   parentName?: string | null;
   worktreeLabel?: string | null;
   disableBranchMenu?: boolean;
@@ -74,6 +75,7 @@ type MainHeaderProps = {
 
 export function MainHeader({
   workspace,
+  threadId = null,
   parentName = null,
   worktreeLabel = null,
   disableBranchMenu = false,
@@ -187,7 +189,8 @@ export function MainHeader({
   return (
     <header className="main-header" data-tauri-drag-region>
       <div className="workspace-header">
-        <div className="workspace-title-line">
+        <div className="workspace-heading">
+          <div className="workspace-title-line">
           <span className="workspace-title">
             {parentName ? parentName : workspace.name}
           </span>
@@ -474,6 +477,13 @@ export function MainHeader({
               )}
             </div>
           )}
+          </div>
+          {threadId ? (
+            <div className="workspace-meta-line" data-tauri-drag-region="false">
+              <span className="workspace-meta-label">Conversation</span>
+              <code className="workspace-thread-id">{threadId}</code>
+            </div>
+          ) : null}
         </div>
       </div>
       <div className="main-header-actions">

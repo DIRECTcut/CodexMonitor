@@ -228,6 +228,54 @@
   cursor: progress;
 }
 
+.message-edit-button.is-loading {
+  cursor: progress;
+}
+
+.message-edit-button .working-spinner {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+
+.message-inline-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.message-inline-edit-input {
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+  border-radius: 12px;
+  border: 1px solid var(--cm-border-emphasis);
+  background: var(--cm-surface-panel-elevated);
+  color: var(--text-strong);
+  padding: 10px 12px;
+  font: inherit;
+  line-height: 1.5;
+}
+
+.message-inline-edit-note {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.message-inline-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.message-inline-edit-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 10px;
+}
+
 .message-fork-button .working-spinner {
   width: 14px;
   height: 14px;

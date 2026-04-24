@@ -75,6 +75,9 @@ type UseMainAppComposerWorkspaceStateArgs = {
     sendUserMessage: Parameters<typeof useComposerController>[0]["sendUserMessage"];
     sendUserMessageToThread: Parameters<typeof useComposerController>[0]["sendUserMessageToThread"] &
       Parameters<typeof useWorkspaceHome>[0]["sendUserMessageToThread"];
+    rollbackThreadForWorkspace: Parameters<
+      typeof useComposerController
+    >[0]["rollbackThreadForWorkspace"];
     seedThreadCodexParams: NonNullable<
       Parameters<typeof useWorkspaceHome>[0]["seedThreadCodexParams"]
     >;
@@ -137,6 +140,7 @@ export function useMainAppComposerWorkspaceState({
     startThreadForWorkspace,
     sendUserMessage,
     sendUserMessageToThread,
+    rollbackThreadForWorkspace,
     seedThreadCodexParams,
     startFork,
     startReview,
@@ -237,6 +241,7 @@ export function useMainAppComposerWorkspaceState({
     startThreadForWorkspace,
     sendUserMessage,
     sendUserMessageToThread,
+    rollbackThreadForWorkspace,
     startFork,
     startReview,
     startResume,

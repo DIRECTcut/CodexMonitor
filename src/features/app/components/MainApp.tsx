@@ -1143,6 +1143,17 @@ export default function MainApp() {
       startThreadForWorkspace,
       sendUserMessage,
       sendUserMessageToThread,
+      rollbackThreadForWorkspace: async (workspaceId, threadId, numTurns) => {
+        const result = await rollbackThreadForWorkspace(workspaceId, threadId, numTurns);
+        if (result) {
+          return result;
+        }
+        pushErrorToast({
+          title: "Failed to rewind conversation",
+          message: "The conversation could not be rewound. Try again.",
+        });
+        return null;
+      },
       seedThreadCodexParams: patchThreadCodexParams,
       startFork,
       startReview,

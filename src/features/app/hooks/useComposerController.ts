@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type {
   AppMention,
+  ConversationItem,
   ComposerSendIntent,
   FollowUpMessageBehavior,
   QueuedMessage,
@@ -9,6 +10,7 @@ import type {
 } from "../../../types";
 import { useComposerImages } from "../../composer/hooks/useComposerImages";
 import { useQueuedSend } from "../../threads/hooks/useQueuedSend";
+import type { SendMessageOptions } from "../../threads/hooks/threadMessagingHelpers";
 
 export function useComposerController({
   activeThreadId,
@@ -25,6 +27,7 @@ export function useComposerController({
   startThreadForWorkspace,
   sendUserMessage,
   sendUserMessageToThread,
+  rollbackThreadForWorkspace,
   startFork,
   startReview,
   startResume,
@@ -60,7 +63,13 @@ export function useComposerController({
     threadId: string,
     text: string,
     images?: string[],
+    options?: SendMessageOptions,
   ) => Promise<void | SendMessageResult>;
+  rollbackThreadForWorkspace: (
+    workspaceId: string,
+    threadId: string,
+    numTurns: number,
+  ) => Promise<string | null>;
   startFork: (text: string) => Promise<void>;
   startReview: (text: string) => Promise<void>;
   startResume: (text: string) => Promise<void>;
@@ -90,7 +99,7 @@ export function useComposerController({
 
   const {
     activeQueue,
-    handleSend,
+    handleSend: baseHandleSend,
     queueMessage,
     removeQueuedMessage,
   } = useQueuedSend({
@@ -142,9 +151,9 @@ export function useComposerController({
       if (!text.trim()) {
         return;
       }
-      void handleSend(text, [], appMentions);
+      void baseHandleSend(text, [], appMentions);
     },
-    [handleSend],
+    [baseHandleSend],
   );
 
   const handleEditQueued = useCallback(
@@ -157,6 +166,69 @@ export function useComposerController({
       setPrefillDraft(item);
     },
     [activeThreadId, removeQueuedMessage, setImagesForThread],
+  );
+
+  const submitEditedLastMessage = useCallback(
+    async (
+      item: Extract<ConversationItem, { kind: "message" }>,
+      text: string,
+    ): Promise<boolean> => {
+      const trimmedText = text.trim();
+      if (!trimmedText && (item.images?.length ?? 0) === 0) {
+        return false;
+      }
+      if (
+        !activeWorkspace ||
+        !activeThreadId ||
+        !activeWorkspaceId ||
+        activeWorkspace.id !== activeWorkspaceId
+      ) {
+        return false;
+      }
+      if (isProcessing || isReviewing) {
+        return false;
+      }
+      const rollbackResult = await rollbackThreadForWorkspace(
+        activeWorkspaceId,
+        activeThreadId,
+        1,
+      );
+      if (!rollbackResult) {
+        return false;
+      }
+      try {
+        const sendResult = await sendUserMessageToThread(
+          activeWorkspace,
+          activeThreadId,
+          trimmedText,
+          item.images ?? [],
+        );
+        return !sendResult || sendResult.status === "sent";
+      } catch {
+        return false;
+      }
+    },
+    [
+      activeThreadId,
+      activeWorkspace,
+      activeWorkspaceId,
+      isProcessing,
+      isReviewing,
+      rollbackThreadForWorkspace,
+      sendUserMessageToThread,
+    ],
+  );
+
+  const handleSend = useCallback(
+    async (
+      text: string,
+      images: string[] = [],
+      appMentions: AppMention[] = [],
+      submitIntent?: ComposerSendIntent,
+    ) => {
+      await baseHandleSend(text, images, appMentions, submitIntent);
+    },
+    [baseHandleSend],
   );
 
   const handleDeleteQueued = useCallback(
@@ -195,6 +267,7 @@ export function useComposerController({
     setPrefillDraft,
     composerInsert,
     setComposerInsert,
+    submitEditedLastMessage,
     activeDraft,
     handleDraftChange,
     handleSendPrompt,
