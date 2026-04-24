@@ -243,6 +243,167 @@ describe("Messages", () => {
     selection?.removeAllRanges();
   });
 
+  it("renders fork on only the latest assistant message and calls the fork handler", () => {
+    const onForkThread = vi.fn();
+    const items: ConversationItem[] = [
+      {
+        id: "msg-old-assistant",
+        kind: "message",
+        role: "assistant",
+        text: "Earlier assistant reply",
+      },
+      {
+        id: "msg-user",
+        kind: "message",
+        role: "user",
+        text: "Follow-up from user",
+      },
+      {
+        id: "msg-latest-assistant",
+        kind: "message",
+        role: "assistant",
+        text: "Latest assistant reply",
+      },
+    ];
+
+    const { container } = render(
+      <Messages
+        items={items}
+        threadId="thread-1"
+        workspaceId="ws-1"
+        isThinking={false}
+        openTargets={[]}
+        selectedOpenAppId=""
+        onForkThread={onForkThread}
+      />,
+    );
+
+    const forkButtons = screen.getAllByRole("button", { name: "Fork thread" });
+    expect(forkButtons).toHaveLength(1);
+    fireEvent.click(forkButtons[0] as Element);
+    expect(onForkThread).toHaveBeenCalledTimes(1);
+
+    const messages = Array.from(container.querySelectorAll(".message"));
+    expect(messages).toHaveLength(3);
+    expect(messages[0]?.querySelector(".message-fork-button")).toBeNull();
+    expect(messages[1]?.querySelector(".message-fork-button")).toBeNull();
+    expect(messages[2]?.querySelector(".message-fork-button")).toBeTruthy();
+  });
+
+  it("shows a loading state on the fork button while the fork is pending", async () => {
+    let resolveFork: (() => void) | null = null;
+    const onForkThread = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveFork = resolve;
+        }),
+    );
+    const items: ConversationItem[] = [
+      {
+        id: "msg-latest-assistant",
+        kind: "message",
+        role: "assistant",
+        text: "Latest assistant reply",
+      },
+    ];
+
+    render(
+      <Messages
+        items={items}
+        threadId="thread-1"
+        workspaceId="ws-1"
+        isThinking={false}
+        openTargets={[]}
+        selectedOpenAppId=""
+        onForkThread={onForkThread}
+      />,
+    );
+
+    const forkButton = screen.getByRole("button", { name: "Fork thread" });
+    fireEvent.click(forkButton);
+
+    expect(onForkThread).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole("button", { name: "Forking thread" }).hasAttribute("disabled"),
+    ).toBe(true);
+
+    await act(async () => {
+      resolveFork?.();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Fork thread" }).hasAttribute("disabled"),
+      ).toBe(false);
+    });
+  });
+
+  it("hides the fork action while the thread is processing", () => {
+    const onForkThread = vi.fn();
+    const items: ConversationItem[] = [
+      {
+        id: "msg-processing-assistant",
+        kind: "message",
+        role: "assistant",
+        text: "Working on it",
+      },
+    ];
+
+    render(
+      <Messages
+        items={items}
+        threadId="thread-1"
+        workspaceId="ws-1"
+        isThinking
+        openTargets={[]}
+        selectedOpenAppId=""
+        onForkThread={onForkThread}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Fork thread" })).toBeNull();
+  });
+
+  it("hides the fork action when workspace or thread context is missing", () => {
+    const onForkThread = vi.fn();
+    const items: ConversationItem[] = [
+      {
+        id: "msg-contextless-assistant",
+        kind: "message",
+        role: "assistant",
+        text: "Latest assistant reply",
+      },
+    ];
+
+    const { rerender } = render(
+      <Messages
+        items={items}
+        threadId={null}
+        workspaceId="ws-1"
+        isThinking={false}
+        openTargets={[]}
+        selectedOpenAppId=""
+        onForkThread={onForkThread}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Fork thread" })).toBeNull();
+
+    rerender(
+      <Messages
+        items={items}
+        threadId="thread-1"
+        workspaceId={null}
+        isThinking={false}
+        openTargets={[]}
+        selectedOpenAppId=""
+        onForkThread={onForkThread}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Fork thread" })).toBeNull();
+  });
+
   it("opens linked review thread when clicking thread link", () => {
     const onOpenThreadLink = vi.fn();
     const items: ConversationItem[] = [

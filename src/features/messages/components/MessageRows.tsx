@@ -7,6 +7,7 @@ import Copy from "lucide-react/dist/esm/icons/copy";
 import Diff from "lucide-react/dist/esm/icons/diff";
 import FileDiffIcon from "lucide-react/dist/esm/icons/file-diff";
 import FileText from "lucide-react/dist/esm/icons/file-text";
+import GitFork from "lucide-react/dist/esm/icons/git-fork";
 import Image from "lucide-react/dist/esm/icons/image";
 import Quote from "lucide-react/dist/esm/icons/quote";
 import Search from "lucide-react/dist/esm/icons/search";
@@ -59,6 +60,7 @@ type MessageRowProps = MarkdownFileLinkProps & {
   item: Extract<ConversationItem, { kind: "message" }>;
   isCopied: boolean;
   onCopy: (item: Extract<ConversationItem, { kind: "message" }>) => void;
+  onFork?: () => Promise<void> | void;
   onQuote?: (item: Extract<ConversationItem, { kind: "message" }>, selectedText?: string) => void;
   codeBlockCopyUseModifier?: boolean;
 };
@@ -370,6 +372,7 @@ export const MessageRow = memo(function MessageRow({
   item,
   isCopied,
   onCopy,
+  onFork,
   onQuote,
   codeBlockCopyUseModifier,
   showMessageFilePath,
@@ -379,6 +382,7 @@ export const MessageRow = memo(function MessageRow({
   onOpenThreadLink,
 }: MessageRowProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [isForking, setIsForking] = useState(false);
   const bubbleRef = useRef<HTMLDivElement | null>(null);
   const selectionSnapshotRef = useRef<string | null>(null);
   const hasText = item.text.trim().length > 0;
@@ -422,7 +426,11 @@ export const MessageRow = memo(function MessageRow({
         return false;
       }
       const element = node instanceof Element ? node : node.parentElement;
-      return Boolean(element?.closest(".message-quote-button, .message-copy-button"));
+      return Boolean(
+        element?.closest(
+          ".message-fork-button, .message-quote-button, .message-copy-button",
+        ),
+      );
     };
 
     if (isWithinMessageControls(selection.anchorNode) || isWithinMessageControls(selection.focusNode)) {
@@ -439,6 +447,22 @@ export const MessageRow = memo(function MessageRow({
     selectionSnapshotRef.current = null;
     onQuote(item, selectedText);
   }, [getSelectedMessageText, item, onQuote]);
+
+  const handleFork = useCallback(async () => {
+    if (!onFork || isForking) {
+      return;
+    }
+    const result = onFork();
+    if (!(result instanceof Promise)) {
+      return;
+    }
+    setIsForking(true);
+    try {
+      await result;
+    } finally {
+      setIsForking(false);
+    }
+  }, [isForking, onFork]);
 
   return (
     <div className={`message ${item.role}`}>
@@ -473,35 +497,59 @@ export const MessageRow = memo(function MessageRow({
             onClose={() => setLightboxIndex(null)}
           />
         )}
-        {onQuote && hasText && (
-          <button
-            type="button"
-            className="ghost message-quote-button"
-            onMouseDown={() => {
-              selectionSnapshotRef.current = getSelectedMessageText();
-            }}
-            onTouchStart={() => {
-              selectionSnapshotRef.current = getSelectedMessageText();
-            }}
-            onClick={handleQuote}
-            aria-label="Quote message"
-            title="Quote message"
-          >
-            <Quote size={14} aria-hidden />
-          </button>
+        {(onFork || onQuote || hasText) && (
+          <div className="message-actions">
+            {onFork && hasText && (
+              <button
+                type="button"
+                className={`ghost message-action-button message-fork-button${
+                  isForking ? " is-loading" : ""
+                }`}
+                onClick={() => void handleFork()}
+                aria-label={isForking ? "Forking thread" : "Fork thread"}
+                title={isForking ? "Forking thread" : "Fork thread"}
+                disabled={isForking}
+              >
+                {isForking ? (
+                  <span className="working-spinner" aria-hidden />
+                ) : (
+                  <GitFork size={14} aria-hidden />
+                )}
+              </button>
+            )}
+            {onQuote && hasText && (
+              <button
+                type="button"
+                className="ghost message-action-button message-quote-button"
+                onMouseDown={() => {
+                  selectionSnapshotRef.current = getSelectedMessageText();
+                }}
+                onTouchStart={() => {
+                  selectionSnapshotRef.current = getSelectedMessageText();
+                }}
+                onClick={handleQuote}
+                aria-label="Quote message"
+                title="Quote message"
+              >
+                <Quote size={14} aria-hidden />
+              </button>
+            )}
+            <button
+              type="button"
+              className={`ghost message-action-button message-copy-button${
+                isCopied ? " is-copied" : ""
+              }`}
+              onClick={() => onCopy(item)}
+              aria-label="Copy message"
+              title="Copy message"
+            >
+              <span className="message-copy-icon" aria-hidden>
+                <Copy className="message-copy-icon-copy" size={14} />
+                <Check className="message-copy-icon-check" size={14} />
+              </span>
+            </button>
+          </div>
         )}
-        <button
-          type="button"
-          className={`ghost message-copy-button${isCopied ? " is-copied" : ""}`}
-          onClick={() => onCopy(item)}
-          aria-label="Copy message"
-          title="Copy message"
-        >
-          <span className="message-copy-icon" aria-hidden>
-            <Copy className="message-copy-icon-copy" size={14} />
-            <Check className="message-copy-icon-check" size={14} />
-          </span>
-        </button>
       </div>
     </div>
   );

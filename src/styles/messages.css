@@ -198,40 +198,40 @@
   margin: 0;
 }
 
-.message-copy-button {
+.message-actions {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
   position: absolute;
   right: 6px;
   bottom: -12px;
-  padding: 4px;
-  border-radius: 999px;
-  background: var(--surface-card-strong);
-  border: 1px solid var(--border-strong);
   opacity: 0;
   transform: translateY(4px);
   transition: opacity 160ms ease, transform 160ms ease;
 }
 
-.message-quote-button {
+.message-action-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  position: absolute;
-  right: 34px;
-  bottom: -12px;
   padding: 4px;
   border-radius: 999px;
   background: var(--surface-card-strong);
   border: 1px solid var(--border-strong);
-  opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 160ms ease, transform 160ms ease;
 }
 
-.message:hover .message-copy-button,
-.message:hover .message-quote-button {
+.message-fork-button.is-loading {
+  cursor: progress;
+}
+
+.message-fork-button .working-spinner {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+
+.message:hover .message-actions,
+.message:focus-within .message-actions {
   opacity: 1;
   transform: translateY(0);
 }

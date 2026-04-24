@@ -47,6 +47,7 @@ type MessagesProps = {
   onPlanSubmitChanges?: (changes: string) => void;
   onOpenThreadLink?: (threadId: string, workspaceId?: string | null) => void;
   onQuoteMessage?: (text: string) => void;
+  onForkThread?: () => Promise<void> | void;
 };
 
 export const Messages = memo(function Messages({
@@ -70,6 +71,7 @@ export const Messages = memo(function Messages({
   onPlanSubmitChanges,
   onOpenThreadLink,
   onQuoteMessage,
+  onForkThread,
 }: MessagesProps) {
   const activeUserInputRequestId =
     threadId && userInputRequests.length
@@ -90,6 +92,15 @@ export const Messages = memo(function Messages({
     },
     [onOpenThreadLink, workspaceId],
   );
+  const latestAssistantMessageId = (() => {
+    for (let index = items.length - 1; index >= 0; index -= 1) {
+      const item = items[index];
+      if (item.kind === "message" && item.role === "assistant") {
+        return item.id;
+      }
+    }
+    return null;
+  })();
 
   const hasActiveUserInputRequest = activeUserInputRequestId !== null;
   const hasVisibleUserInputRequest = hasActiveUserInputRequest && Boolean(onUserInputSubmit);
@@ -147,12 +158,20 @@ export const Messages = memo(function Messages({
   const renderItem = (item: ConversationItem) => {
     if (item.kind === "message") {
       const isCopied = copiedMessageId === item.id;
+      const canFork =
+        Boolean(onForkThread) &&
+        Boolean(threadId) &&
+        Boolean(workspaceId) &&
+        !isThinking &&
+        item.role === "assistant" &&
+        item.id === latestAssistantMessageId;
       return (
         <MessageRow
           key={item.id}
           item={item}
           isCopied={isCopied}
           onCopy={handleCopyMessage}
+          onFork={canFork ? onForkThread : undefined}
           onQuote={onQuoteMessage ? handleQuoteMessage : undefined}
           codeBlockCopyUseModifier={codeBlockCopyUseModifier}
           showMessageFilePath={showMessageFilePath}

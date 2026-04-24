@@ -454,6 +454,7 @@ export default function MainApp() {
     getPinTimestamp,
     renameThread,
     startThreadForWorkspace,
+    forkThreadForWorkspace,
     listThreadsForWorkspaces,
     listThreadsForWorkspace,
     loadOlderThreadsForWorkspace,
@@ -1692,6 +1693,12 @@ export default function MainApp() {
     handleAddWorktreeAgent,
     handleAddCloneAgent,
     handleOpenThreadLink,
+    handleForkThread: () => {
+      if (!activeWorkspace || !activeThreadId) {
+        return;
+      }
+      return forkThreadForWorkspace(activeWorkspace.id, activeThreadId).then(() => {});
+    },
     handleSelectOpenAppId,
     handleCopyThread,
     handleToggleTerminalWithFocus,
