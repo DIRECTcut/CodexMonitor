@@ -224,7 +224,17 @@
   cursor: progress;
 }
 
+.message-rewind-button.is-loading {
+  cursor: progress;
+}
+
 .message-fork-button .working-spinner {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+
+.message-rewind-button .working-spinner {
   width: 14px;
   height: 14px;
   border-width: 2px;

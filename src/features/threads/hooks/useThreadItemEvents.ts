@@ -131,11 +131,13 @@ export function useThreadItemEvents({
       workspaceId,
       threadId,
       itemId,
+      turnId,
       delta,
     }: {
       workspaceId: string;
       threadId: string;
       itemId: string;
+      turnId: string | null;
       delta: string;
     }) => {
       dispatch({ type: "ensureThread", workspaceId, threadId });
@@ -146,6 +148,7 @@ export function useThreadItemEvents({
         workspaceId,
         threadId,
         itemId,
+        turnId,
         delta,
         hasCustomName,
       });
@@ -158,11 +161,13 @@ export function useThreadItemEvents({
       workspaceId,
       threadId,
       itemId,
+      turnId,
       text,
     }: {
       workspaceId: string;
       threadId: string;
       itemId: string;
+      turnId: string | null;
       text: string;
     }) => {
       const timestamp = Date.now();
@@ -173,6 +178,7 @@ export function useThreadItemEvents({
         workspaceId,
         threadId,
         itemId,
+        turnId,
         text,
         hasCustomName,
       });

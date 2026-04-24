@@ -560,6 +560,7 @@ export function useThreads({
   const {
     startThreadForWorkspace: startThreadForWorkspaceInternal,
     forkThreadForWorkspace,
+    rollbackThreadForWorkspace,
     resumeThreadForWorkspace,
     refreshThread,
     resetWorkspaceThreads,
@@ -894,6 +895,7 @@ export function useThreads({
     startThread,
     startThreadForWorkspace,
     forkThreadForWorkspace,
+    rollbackThreadForWorkspace,
     listThreadsForWorkspaces,
     listThreadsForWorkspace,
     refreshThread,

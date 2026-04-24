@@ -9,6 +9,7 @@ import {
   createGitHubRepo,
   fetchGit,
   forkThread,
+  rollbackThread,
   getAppsList,
   getAgentsSettings,
   getExperimentalFeatureList,
@@ -263,6 +264,19 @@ describe("tauri invoke wrappers", () => {
     expect(invokeMock).toHaveBeenCalledWith("fork_thread", {
       workspaceId: "ws-9",
       threadId: "thread-9",
+    });
+  });
+
+  it("maps workspaceId, threadId, and numTurns for rollback_thread", async () => {
+    const invokeMock = vi.mocked(invoke);
+    invokeMock.mockResolvedValueOnce({});
+
+    await rollbackThread("ws-9", "thread-9", 2);
+
+    expect(invokeMock).toHaveBeenCalledWith("rollback_thread", {
+      workspaceId: "ws-9",
+      threadId: "thread-9",
+      numTurns: 2,
     });
   });
 

@@ -758,6 +758,16 @@ impl DaemonState {
         codex_core::fork_thread_core(&self.sessions, workspace_id, thread_id).await
     }
 
+    async fn rollback_thread(
+        &self,
+        workspace_id: String,
+        thread_id: String,
+        num_turns: u32,
+    ) -> Result<Value, String> {
+        codex_core::rollback_thread_core(&self.sessions, workspace_id, thread_id, num_turns)
+            .await
+    }
+
     async fn list_threads(
         &self,
         workspace_id: String,

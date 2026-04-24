@@ -92,6 +92,21 @@ pub(super) async fn try_handle(
             };
             Some(state.fork_thread(workspace_id, thread_id).await)
         }
+        "rollback_thread" => {
+            let workspace_id = match parse_string(params, "workspaceId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let thread_id = match parse_string(params, "threadId") {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            let num_turns = match parse_optional_u32(params, "numTurns") {
+                Some(value) => value,
+                None => return Some(Err("missing or invalid `numTurns`".to_string())),
+            };
+            Some(state.rollback_thread(workspace_id, thread_id, num_turns).await)
+        }
         "list_threads" => {
             let workspace_id = match parse_string(params, "workspaceId") {
                 Ok(value) => value,

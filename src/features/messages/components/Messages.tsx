@@ -48,6 +48,7 @@ type MessagesProps = {
   onOpenThreadLink?: (threadId: string, workspaceId?: string | null) => void;
   onQuoteMessage?: (text: string) => void;
   onForkThread?: () => Promise<void> | void;
+  onRollbackThread?: (turnId: string, numTurns: number) => Promise<void> | void;
 };
 
 export const Messages = memo(function Messages({
@@ -72,6 +73,7 @@ export const Messages = memo(function Messages({
   onOpenThreadLink,
   onQuoteMessage,
   onForkThread,
+  onRollbackThread,
 }: MessagesProps) {
   const activeUserInputRequestId =
     threadId && userInputRequests.length
@@ -101,6 +103,15 @@ export const Messages = memo(function Messages({
     }
     return null;
   })();
+  const orderedTurnIds = items.reduce<string[]>((acc, item) => {
+    if (item.turnId && !acc.includes(item.turnId)) {
+      acc.push(item.turnId);
+    }
+    return acc;
+  }, []);
+  const latestTurnId =
+    orderedTurnIds.length > 0 ? orderedTurnIds[orderedTurnIds.length - 1] ?? null : null;
+  const turnIndexById = new Map(orderedTurnIds.map((turnId, index) => [turnId, index]));
 
   const hasActiveUserInputRequest = activeUserInputRequestId !== null;
   const hasVisibleUserInputRequest = hasActiveUserInputRequest && Boolean(onUserInputSubmit);
@@ -165,6 +176,21 @@ export const Messages = memo(function Messages({
         !isThinking &&
         item.role === "assistant" &&
         item.id === latestAssistantMessageId;
+      const itemTurnIndex =
+        item.turnId && turnIndexById.has(item.turnId)
+          ? turnIndexById.get(item.turnId) ?? -1
+          : -1;
+      const numTurnsToRewind =
+        itemTurnIndex >= 0 ? orderedTurnIds.length - itemTurnIndex - 1 : 0;
+      const canRollback =
+        Boolean(onRollbackThread) &&
+        Boolean(threadId) &&
+        Boolean(workspaceId) &&
+        !isThinking &&
+        item.role === "assistant" &&
+        Boolean(item.turnId) &&
+        item.turnId !== latestTurnId &&
+        numTurnsToRewind > 0;
       return (
         <MessageRow
           key={item.id}
@@ -172,6 +198,11 @@ export const Messages = memo(function Messages({
           isCopied={isCopied}
           onCopy={handleCopyMessage}
           onFork={canFork ? onForkThread : undefined}
+          onRollback={
+            canRollback && item.turnId && onRollbackThread
+              ? () => onRollbackThread(item.turnId!, numTurnsToRewind)
+              : undefined
+          }
           onQuote={onQuoteMessage ? handleQuoteMessage : undefined}
           codeBlockCopyUseModifier={codeBlockCopyUseModifier}
           showMessageFilePath={showMessageFilePath}

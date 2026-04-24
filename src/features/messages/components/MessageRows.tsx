@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import { createPortal } from "react-dom";
+import { ask } from "@tauri-apps/plugin-dialog";
 import Brain from "lucide-react/dist/esm/icons/brain";
 import Check from "lucide-react/dist/esm/icons/check";
 import Copy from "lucide-react/dist/esm/icons/copy";
@@ -10,6 +11,7 @@ import FileText from "lucide-react/dist/esm/icons/file-text";
 import GitFork from "lucide-react/dist/esm/icons/git-fork";
 import Image from "lucide-react/dist/esm/icons/image";
 import Quote from "lucide-react/dist/esm/icons/quote";
+import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw";
 import Search from "lucide-react/dist/esm/icons/search";
 import Terminal from "lucide-react/dist/esm/icons/terminal";
 import Users from "lucide-react/dist/esm/icons/users";
@@ -61,6 +63,7 @@ type MessageRowProps = MarkdownFileLinkProps & {
   isCopied: boolean;
   onCopy: (item: Extract<ConversationItem, { kind: "message" }>) => void;
   onFork?: () => Promise<void> | void;
+  onRollback?: () => Promise<void> | void;
   onQuote?: (item: Extract<ConversationItem, { kind: "message" }>, selectedText?: string) => void;
   codeBlockCopyUseModifier?: boolean;
 };
@@ -373,6 +376,7 @@ export const MessageRow = memo(function MessageRow({
   isCopied,
   onCopy,
   onFork,
+  onRollback,
   onQuote,
   codeBlockCopyUseModifier,
   showMessageFilePath,
@@ -383,6 +387,7 @@ export const MessageRow = memo(function MessageRow({
 }: MessageRowProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [isForking, setIsForking] = useState(false);
+  const [isRewinding, setIsRewinding] = useState(false);
   const bubbleRef = useRef<HTMLDivElement | null>(null);
   const selectionSnapshotRef = useRef<string | null>(null);
   const hasText = item.text.trim().length > 0;
@@ -428,7 +433,7 @@ export const MessageRow = memo(function MessageRow({
       const element = node instanceof Element ? node : node.parentElement;
       return Boolean(
         element?.closest(
-          ".message-fork-button, .message-quote-button, .message-copy-button",
+          ".message-fork-button, .message-rewind-button, .message-quote-button, .message-copy-button",
         ),
       );
     };
@@ -449,7 +454,7 @@ export const MessageRow = memo(function MessageRow({
   }, [getSelectedMessageText, item, onQuote]);
 
   const handleFork = useCallback(async () => {
-    if (!onFork || isForking) {
+    if (!onFork || isForking || isRewinding) {
       return;
     }
     const result = onFork();
@@ -463,6 +468,34 @@ export const MessageRow = memo(function MessageRow({
       setIsForking(false);
     }
   }, [isForking, onFork]);
+
+  const handleRollback = useCallback(async () => {
+    if (!onRollback || isForking || isRewinding) {
+      return;
+    }
+    const confirmed = await ask(
+      "This will remove all turns after this point from the conversation history. File changes already made in the workspace will not be reverted.",
+      {
+        title: "Rewind conversation?",
+        kind: "warning",
+        okLabel: "Rewind",
+        cancelLabel: "Cancel",
+      },
+    );
+    if (!confirmed) {
+      return;
+    }
+    const result = onRollback();
+    if (!(result instanceof Promise)) {
+      return;
+    }
+    setIsRewinding(true);
+    try {
+      await result;
+    } finally {
+      setIsRewinding(false);
+    }
+  }, [isForking, isRewinding, onRollback]);
 
   return (
     <div className={`message ${item.role}`}>
@@ -497,7 +530,7 @@ export const MessageRow = memo(function MessageRow({
             onClose={() => setLightboxIndex(null)}
           />
         )}
-        {(onFork || onQuote || hasText) && (
+        {(onFork || onRollback || onQuote || hasText) && (
           <div className="message-actions">
             {onFork && hasText && (
               <button
@@ -508,12 +541,30 @@ export const MessageRow = memo(function MessageRow({
                 onClick={() => void handleFork()}
                 aria-label={isForking ? "Forking thread" : "Fork thread"}
                 title={isForking ? "Forking thread" : "Fork thread"}
-                disabled={isForking}
+                disabled={isForking || isRewinding}
               >
                 {isForking ? (
                   <span className="working-spinner" aria-hidden />
                 ) : (
                   <GitFork size={14} aria-hidden />
+                )}
+              </button>
+            )}
+            {onRollback && hasText && (
+              <button
+                type="button"
+                className={`ghost message-action-button message-rewind-button${
+                  isRewinding ? " is-loading" : ""
+                }`}
+                onClick={() => void handleRollback()}
+                aria-label={isRewinding ? "Rewinding conversation" : "Rewind to here"}
+                title={isRewinding ? "Rewinding conversation" : "Rewind to here"}
+                disabled={isForking || isRewinding}
+              >
+                {isRewinding ? (
+                  <span className="working-spinner" aria-hidden />
+                ) : (
+                  <RotateCcw size={14} aria-hidden />
                 )}
               </button>
             )}
@@ -530,6 +581,7 @@ export const MessageRow = memo(function MessageRow({
                 onClick={handleQuote}
                 aria-label="Quote message"
                 title="Quote message"
+                disabled={isForking || isRewinding}
               >
                 <Quote size={14} aria-hidden />
               </button>
@@ -542,6 +594,7 @@ export const MessageRow = memo(function MessageRow({
               onClick={() => onCopy(item)}
               aria-label="Copy message"
               title="Copy message"
+              disabled={isForking || isRewinding}
             >
               <span className="message-copy-icon" aria-hidden>
                 <Copy className="message-copy-icon-copy" size={14} />

@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use tokio::sync::oneshot::error::TryRecvError;
 use tokio::sync::{oneshot, Mutex};
@@ -321,6 +321,19 @@ pub(crate) async fn fork_thread_core(
     let params = json!({ "threadId": thread_id });
     session
         .send_request_for_workspace(&workspace_id, "thread/fork", params)
+        .await
+}
+
+pub(crate) async fn rollback_thread_core(
+    sessions: &Mutex<HashMap<String, Arc<WorkspaceSession>>>,
+    workspace_id: String,
+    thread_id: String,
+    num_turns: u32,
+) -> Result<Value, String> {
+    let session = get_session_clone(sessions, &workspace_id).await?;
+    let params = json!({ "threadId": thread_id, "numTurns": num_turns });
+    session
+        .send_request_for_workspace(&workspace_id, "thread/rollback", params)
         .await
 }
 

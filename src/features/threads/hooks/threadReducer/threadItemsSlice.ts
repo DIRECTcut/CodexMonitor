@@ -39,11 +39,13 @@ export function reduceThreadItems(state: ThreadState, action: ThreadAction): Thr
         const existing = list[index];
         list[index] = {
           ...existing,
+          turnId: existing.turnId ?? action.turnId ?? undefined,
           text: mergeStreamingText(existing.text, action.delta),
         };
       } else {
         list.push({
           id: action.itemId,
+          turnId: action.turnId ?? undefined,
           kind: "message",
           role: "assistant",
           text: action.delta,
@@ -74,11 +76,13 @@ export function reduceThreadItems(state: ThreadState, action: ThreadAction): Thr
         const existing = list[index];
         list[index] = {
           ...existing,
+          turnId: existing.turnId ?? action.turnId ?? undefined,
           text: action.text || existing.text,
         };
       } else {
         list.push({
           id: action.itemId,
+          turnId: action.turnId ?? undefined,
           kind: "message",
           role: "assistant",
           text: action.text,

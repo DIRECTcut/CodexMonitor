@@ -227,6 +227,31 @@ pub(crate) async fn fork_thread(
 }
 
 #[tauri::command]
+pub(crate) async fn rollback_thread(
+    workspace_id: String,
+    thread_id: String,
+    num_turns: u32,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Value, String> {
+    if remote_backend::is_remote_mode(&*state).await {
+        return remote_backend::call_remote(
+            &*state,
+            app,
+            "rollback_thread",
+            json!({
+                "workspaceId": workspace_id,
+                "threadId": thread_id,
+                "numTurns": num_turns
+            }),
+        )
+        .await;
+    }
+
+    codex_core::rollback_thread_core(&state.sessions, workspace_id, thread_id, num_turns).await
+}
+
+#[tauri::command]
 pub(crate) async fn list_threads(
     workspace_id: String,
     cursor: Option<String>,

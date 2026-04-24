@@ -221,6 +221,7 @@ describe("useThreadItemEvents", () => {
         workspaceId: "ws-1",
         threadId: "thread-1",
         itemId: "assistant-1",
+        turnId: "turn-1",
         delta: "Hello",
       });
     });
@@ -236,6 +237,7 @@ describe("useThreadItemEvents", () => {
       workspaceId: "ws-1",
       threadId: "thread-1",
       itemId: "assistant-1",
+      turnId: "turn-1",
       delta: "Hello",
       hasCustomName: false,
     });
@@ -252,6 +254,7 @@ describe("useThreadItemEvents", () => {
         workspaceId: "ws-1",
         threadId: "thread-1",
         itemId: "assistant-1",
+        turnId: "turn-1",
         text: "Done",
       });
     });
@@ -266,6 +269,7 @@ describe("useThreadItemEvents", () => {
       workspaceId: "ws-1",
       threadId: "thread-1",
       itemId: "assistant-1",
+      turnId: "turn-1",
       text: "Done",
       hasCustomName: false,
     });

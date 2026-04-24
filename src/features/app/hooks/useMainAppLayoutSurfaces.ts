@@ -128,6 +128,9 @@ type UseMainAppLayoutSurfacesArgs = {
   handleAddCloneAgent: SidebarProps["onAddCloneAgent"];
   handleOpenThreadLink: LayoutNodesOptions["primary"]["messagesProps"]["onOpenThreadLink"];
   handleForkThread: NonNullable<LayoutNodesOptions["primary"]["messagesProps"]["onForkThread"]>;
+  handleRollbackThread: NonNullable<
+    LayoutNodesOptions["primary"]["messagesProps"]["onRollbackThread"]
+  >;
   handleSelectOpenAppId: MainHeaderProps["onSelectOpenAppId"];
   handleCopyThread: MainHeaderProps["onCopyThread"];
   handleToggleTerminalWithFocus: MainHeaderProps["onToggleTerminal"];
@@ -302,6 +305,7 @@ function buildPrimarySurface({
   handleAddCloneAgent,
   handleOpenThreadLink,
   handleForkThread,
+  handleRollbackThread,
   handleSelectOpenAppId,
   handleCopyThread,
   handleToggleTerminalWithFocus,
@@ -453,6 +457,7 @@ function buildPrimarySurface({
       onPlanSubmitChanges,
       onOpenThreadLink: handleOpenThreadLink,
       onForkThread: handleForkThread,
+      onRollbackThread: handleRollbackThread,
       onQuoteMessage: composerWorkspaceState.canInsertComposerText
         ? composerWorkspaceState.handleInsertComposerText
         : undefined,
@@ -1015,6 +1020,7 @@ export function useMainAppLayoutSurfaces({
   handleAddCloneAgent,
   handleOpenThreadLink,
   handleForkThread,
+  handleRollbackThread,
   handleSelectOpenAppId,
   handleCopyThread,
   handleToggleTerminalWithFocus,
@@ -1178,6 +1184,7 @@ export function useMainAppLayoutSurfaces({
     handleAddCloneAgent,
     handleOpenThreadLink,
     handleForkThread,
+    handleRollbackThread,
     handleSelectOpenAppId,
     handleCopyThread,
     handleToggleTerminalWithFocus,

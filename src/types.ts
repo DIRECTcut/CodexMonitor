@@ -100,6 +100,7 @@ export type CollabAgentStatus = CollabAgentRef & {
 export type ConversationItem =
   | {
       id: string;
+      turnId?: string;
       kind: "message";
       role: "user" | "assistant";
       text: string;
@@ -107,6 +108,7 @@ export type ConversationItem =
     }
   | {
       id: string;
+      turnId?: string;
       kind: "userInput";
       status: "answered";
       questions: {
@@ -116,17 +118,25 @@ export type ConversationItem =
         answers: string[];
       }[];
     }
-  | { id: string; kind: "reasoning"; summary: string; content: string }
-  | { id: string; kind: "diff"; title: string; diff: string; status?: string }
-  | { id: string; kind: "review"; state: "started" | "completed"; text: string }
+  | { id: string; turnId?: string; kind: "reasoning"; summary: string; content: string }
+  | { id: string; turnId?: string; kind: "diff"; title: string; diff: string; status?: string }
   | {
       id: string;
+      turnId?: string;
+      kind: "review";
+      state: "started" | "completed";
+      text: string;
+    }
+  | {
+      id: string;
+      turnId?: string;
       kind: "explore";
       status: "exploring" | "explored";
       entries: { kind: "read" | "search" | "list" | "run"; label: string; detail?: string }[];
     }
   | {
       id: string;
+      turnId?: string;
       kind: "tool";
       toolType: string;
       title: string;

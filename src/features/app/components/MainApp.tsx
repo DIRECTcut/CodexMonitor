@@ -18,6 +18,7 @@ import { useLayoutController } from "@app/hooks/useLayoutController";
 import { useUpdaterController } from "@app/hooks/useUpdaterController";
 import { useResponseRequiredNotificationsController } from "@app/hooks/useResponseRequiredNotificationsController";
 import { useErrorToasts } from "@/features/notifications/hooks/useErrorToasts";
+import { pushErrorToast } from "@/services/toasts";
 import { useComposerShortcuts } from "@/features/composer/hooks/useComposerShortcuts";
 import { useComposerMenuActions } from "@/features/composer/hooks/useComposerMenuActions";
 import { useComposerEditorState } from "@/features/composer/hooks/useComposerEditorState";
@@ -455,6 +456,7 @@ export default function MainApp() {
     renameThread,
     startThreadForWorkspace,
     forkThreadForWorkspace,
+    rollbackThreadForWorkspace,
     listThreadsForWorkspaces,
     listThreadsForWorkspace,
     loadOlderThreadsForWorkspace,
@@ -1698,6 +1700,24 @@ export default function MainApp() {
         return;
       }
       return forkThreadForWorkspace(activeWorkspace.id, activeThreadId).then(() => {});
+    },
+    handleRollbackThread: (turnId: string, numTurns: number) => {
+      if (!activeWorkspace || !activeThreadId || !turnId || numTurns <= 0) {
+        return;
+      }
+      return rollbackThreadForWorkspace(
+        activeWorkspace.id,
+        activeThreadId,
+        numTurns,
+      ).then((result) => {
+        if (result) {
+          return;
+        }
+        pushErrorToast({
+          title: "Failed to rewind conversation",
+          message: "The conversation could not be rewound. Try again.",
+        });
+      });
     },
     handleSelectOpenAppId,
     handleCopyThread,

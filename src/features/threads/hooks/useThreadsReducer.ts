@@ -87,6 +87,7 @@ export type ThreadAction =
       workspaceId: string;
       threadId: string;
       itemId: string;
+      turnId?: string | null;
       delta: string;
       hasCustomName: boolean;
     }
@@ -95,6 +96,7 @@ export type ThreadAction =
       workspaceId: string;
       threadId: string;
       itemId: string;
+      turnId?: string | null;
       text: string;
       hasCustomName: boolean;
     }

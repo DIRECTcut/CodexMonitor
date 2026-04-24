@@ -585,6 +585,7 @@ describe("useThreads UX integration", () => {
         workspaceId: "ws-1",
         threadId: "thread-3",
         itemId: "local-assistant-1",
+        turnId: null,
         text: "Local response",
       });
     });

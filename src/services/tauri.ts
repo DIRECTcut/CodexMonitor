@@ -395,6 +395,14 @@ export async function forkThread(workspaceId: string, threadId: string) {
   return invoke<any>("fork_thread", { workspaceId, threadId });
 }
 
+export async function rollbackThread(
+  workspaceId: string,
+  threadId: string,
+  numTurns: number,
+) {
+  return invoke<any>("rollback_thread", { workspaceId, threadId, numTurns });
+}
+
 export async function compactThread(workspaceId: string, threadId: string) {
   return invoke<any>("compact_thread", { workspaceId, threadId });
 }

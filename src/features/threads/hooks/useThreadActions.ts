@@ -11,6 +11,7 @@ import {
   forkThread as forkThreadService,
   listThreads as listThreadsService,
   listWorkspaces as listWorkspacesService,
+  rollbackThread as rollbackThreadService,
   resumeThread as resumeThreadService,
   startThread as startThreadService,
 } from "@services/tauri";
@@ -421,6 +422,43 @@ export function useThreadActions({
       return resumeThreadForWorkspace(workspaceId, threadId, true, true);
     },
     [replaceOnResumeRef, resumeThreadForWorkspace],
+  );
+
+  const rollbackThreadForWorkspace = useCallback(
+    async (workspaceId: string, threadId: string, numTurns: number) => {
+      if (!threadId || numTurns <= 0) {
+        return null;
+      }
+      onDebug?.({
+        id: `${Date.now()}-client-thread-rollback`,
+        timestamp: Date.now(),
+        source: "client",
+        label: "thread/rollback",
+        payload: { workspaceId, threadId, numTurns },
+      });
+      try {
+        const response = await rollbackThreadService(workspaceId, threadId, numTurns);
+        onDebug?.({
+          id: `${Date.now()}-server-thread-rollback`,
+          timestamp: Date.now(),
+          source: "server",
+          label: "thread/rollback response",
+          payload: response,
+        });
+        await refreshThread(workspaceId, threadId);
+        return threadId;
+      } catch (error) {
+        onDebug?.({
+          id: `${Date.now()}-client-thread-rollback-error`,
+          timestamp: Date.now(),
+          source: "error",
+          label: "thread/rollback error",
+          payload: error instanceof Error ? error.message : String(error),
+        });
+        return null;
+      }
+    },
+    [onDebug, refreshThread],
   );
 
   const resetWorkspaceThreads = useCallback(
@@ -863,6 +901,7 @@ export function useThreadActions({
   return {
     startThreadForWorkspace,
     forkThreadForWorkspace,
+    rollbackThreadForWorkspace,
     resumeThreadForWorkspace,
     refreshThread,
     resetWorkspaceThreads,

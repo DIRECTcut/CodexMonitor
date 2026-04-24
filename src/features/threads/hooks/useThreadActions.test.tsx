@@ -7,6 +7,7 @@ import {
   forkThread,
   listThreads,
   listWorkspaces,
+  rollbackThread,
   resumeThread,
   startThread,
 } from "@services/tauri";
@@ -24,6 +25,7 @@ import { useThreadActions } from "./useThreadActions";
 vi.mock("@services/tauri", () => ({
   startThread: vi.fn(),
   forkThread: vi.fn(),
+  rollbackThread: vi.fn(),
   resumeThread: vi.fn(),
   listThreads: vi.fn(),
   listWorkspaces: vi.fn(),
@@ -63,6 +65,8 @@ describe("useThreadActions", () => {
     vi.clearAllMocks();
     vi.mocked(listWorkspaces).mockResolvedValue([]);
     vi.mocked(getThreadCreatedTimestamp).mockReturnValue(0);
+    vi.mocked(buildItemsFromThread).mockReturnValue([]);
+    vi.mocked(isReviewingFromThread).mockReturnValue(false);
   });
 
   function renderActions(
@@ -190,6 +194,41 @@ describe("useThreadActions", () => {
         type: "setActiveThreadId",
         threadId: "thread-fork-2",
       }),
+    );
+  });
+
+  it("rolls back a thread and refreshes it", async () => {
+    vi.mocked(rollbackThread).mockResolvedValue({ ok: true });
+    vi.mocked(resumeThread).mockResolvedValue({
+      result: { thread: { id: "thread-1", updated_at: 1 } },
+    });
+
+    const { result } = renderActions();
+
+    let threadId: string | null = null;
+    await act(async () => {
+      threadId = await result.current.rollbackThreadForWorkspace("ws-1", "thread-1", 2);
+    });
+
+    expect(threadId).toBe("thread-1");
+    expect(rollbackThread).toHaveBeenCalledWith("ws-1", "thread-1", 2);
+    expect(resumeThread).toHaveBeenCalledWith("ws-1", "thread-1");
+  });
+
+  it("keeps the UI stable when rollback fails", async () => {
+    vi.mocked(rollbackThread).mockRejectedValue(new Error("rollback failed"));
+    const { result, dispatch } = renderActions();
+
+    let threadId: string | null = "sentinel";
+    await act(async () => {
+      threadId = await result.current.rollbackThreadForWorkspace("ws-1", "thread-1", 2);
+    });
+
+    expect(threadId).toBeNull();
+    expect(rollbackThread).toHaveBeenCalledWith("ws-1", "thread-1", 2);
+    expect(resumeThread).not.toHaveBeenCalled();
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "setThreadItems" }),
     );
   });
 

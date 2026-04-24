@@ -240,6 +240,7 @@ pub fn run() {
             codex::thread_live_subscribe,
             codex::thread_live_unsubscribe,
             codex::fork_thread,
+            codex::rollback_thread,
             codex::list_threads,
             codex::list_mcp_server_status,
             codex::archive_thread,

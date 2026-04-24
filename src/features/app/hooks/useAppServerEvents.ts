@@ -18,6 +18,7 @@ type AgentDelta = {
   workspaceId: string;
   threadId: string;
   itemId: string;
+  turnId: string | null;
   delta: string;
 };
 
@@ -25,6 +26,7 @@ type AgentCompleted = {
   workspaceId: string;
   threadId: string;
   itemId: string;
+  turnId: string | null;
   text: string;
 };
 
@@ -250,12 +252,14 @@ export function useAppServerEvents(handlers: AppServerEventHandlers) {
       if (method === "item/agentMessage/delta") {
         const threadId = String(params.threadId ?? params.thread_id ?? "");
         const itemId = String(params.itemId ?? params.item_id ?? "");
+        const turnId = String(params.turnId ?? params.turn_id ?? "");
         const delta = String(params.delta ?? "");
         if (threadId && itemId && delta) {
           currentHandlers.onAgentMessageDelta?.({
             workspaceId: workspace_id,
             threadId,
             itemId,
+            turnId: turnId || null,
             delta,
           });
         }
@@ -473,11 +477,13 @@ export function useAppServerEvents(handlers: AppServerEventHandlers) {
         if (threadId && item?.type === "agentMessage") {
           const itemId = String(item.id ?? "");
           const text = String(item.text ?? "");
+          const turnId = String(params.turnId ?? params.turn_id ?? "");
           if (itemId) {
             currentHandlers.onAgentMessageCompleted?.({
               workspaceId: workspace_id,
               threadId,
               itemId,
+              turnId: turnId || null,
               text,
             });
           }

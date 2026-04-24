@@ -89,6 +89,7 @@ describe("useAppServerEvents", () => {
       workspaceId: "ws-1",
       threadId: "thread-1",
       itemId: "item-1",
+      turnId: null,
       delta: "Hello",
     });
 
@@ -338,6 +339,7 @@ describe("useAppServerEvents", () => {
       workspaceId: "ws-1",
       threadId: "thread-1",
       itemId: "item-2",
+      turnId: null,
       text: "Done",
     });
 

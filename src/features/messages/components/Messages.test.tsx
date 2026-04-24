@@ -17,6 +17,9 @@ const showFileLinkMenuMock = vi.fn();
 const { exportMarkdownFileMock } = vi.hoisted(() => ({
   exportMarkdownFileMock: vi.fn(),
 }));
+const { askMock } = vi.hoisted(() => ({
+  askMock: vi.fn(),
+}));
 
 vi.mock("../hooks/useFileLinkOpener", () => ({
   useFileLinkOpener: (
@@ -36,6 +39,10 @@ vi.mock("@services/tauri", async () => {
   };
 });
 
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  ask: (...args: unknown[]) => askMock(...args),
+}));
+
 describe("Messages", () => {
   beforeAll(() => {
     if (!HTMLElement.prototype.scrollIntoView) {
@@ -52,6 +59,8 @@ describe("Messages", () => {
     openFileLinkMock.mockReset();
     showFileLinkMenuMock.mockReset();
     exportMarkdownFileMock.mockReset();
+    askMock.mockReset();
+    askMock.mockResolvedValue(true);
   });
 
   it("renders image grid above message text and opens lightbox", () => {
@@ -362,6 +371,7 @@ describe("Messages", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Fork thread" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Rewind to here" })).toBeNull();
   });
 
   it("hides the fork action when workspace or thread context is missing", () => {
@@ -402,6 +412,233 @@ describe("Messages", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Fork thread" })).toBeNull();
+  });
+
+  it("renders rewind on historical assistant turns only and passes the turn-based count", async () => {
+    const onRollbackThread = vi.fn().mockResolvedValue(undefined);
+    const items: ConversationItem[] = [
+      {
+        id: "assistant-turn-1",
+        turnId: "turn-1",
+        kind: "message",
+        role: "assistant",
+        text: "First assistant reply",
+      },
+      {
+        id: "user-turn-2",
+        turnId: "turn-2",
+        kind: "message",
+        role: "user",
+        text: "User follow-up",
+      },
+      {
+        id: "assistant-turn-3-a",
+        turnId: "turn-3",
+        kind: "message",
+        role: "assistant",
+        text: "Assistant reply part one",
+      },
+      {
+        id: "assistant-turn-3-b",
+        turnId: "turn-3",
+        kind: "message",
+        role: "assistant",
+        text: "Assistant reply part two",
+      },
+      {
+        id: "assistant-turn-4",
+        turnId: "turn-4",
+        kind: "message",
+        role: "assistant",
+        text: "Latest assistant reply",
+      },
+    ];
+
+    const { container } = render(
+      <Messages
+        items={items}
+        threadId="thread-1"
+        workspaceId="ws-1"
+        isThinking={false}
+        openTargets={[]}
+        selectedOpenAppId=""
+        onRollbackThread={onRollbackThread}
+      />,
+    );
+
+    const messages = Array.from(container.querySelectorAll(".message"));
+    expect(messages[0]?.querySelector(".message-rewind-button")).toBeTruthy();
+    expect(messages[1]?.querySelector(".message-rewind-button")).toBeNull();
+    expect(messages[2]?.querySelector(".message-rewind-button")).toBeTruthy();
+    expect(messages[3]?.querySelector(".message-rewind-button")).toBeTruthy();
+    expect(messages[4]?.querySelector(".message-rewind-button")).toBeNull();
+
+    const rewindButtons = screen.getAllByRole("button", { name: "Rewind to here" });
+    expect(rewindButtons).toHaveLength(3);
+
+    fireEvent.click(rewindButtons[0] as Element);
+
+    await waitFor(() => {
+      expect(askMock).toHaveBeenCalledWith(
+        "This will remove all turns after this point from the conversation history. File changes already made in the workspace will not be reverted.",
+        expect.objectContaining({
+          title: "Rewind conversation?",
+          kind: "warning",
+          okLabel: "Rewind",
+          cancelLabel: "Cancel",
+        }),
+      );
+    });
+    expect(onRollbackThread).toHaveBeenCalledWith("turn-1", 3);
+  });
+
+  it("does not show rewind on non-message rows or the latest assistant turn", () => {
+    const onRollbackThread = vi.fn();
+    const items: ConversationItem[] = [
+      {
+        id: "reasoning-1",
+        turnId: "turn-1",
+        kind: "reasoning",
+        summary: "Thinking",
+        content: "Working through the steps",
+      },
+      {
+        id: "assistant-1",
+        turnId: "turn-1",
+        kind: "message",
+        role: "assistant",
+        text: "Historical assistant reply",
+      },
+      {
+        id: "review-1",
+        turnId: "turn-2",
+        kind: "review",
+        state: "completed",
+        text: "Review completed",
+      },
+      {
+        id: "assistant-2",
+        turnId: "turn-2",
+        kind: "message",
+        role: "assistant",
+        text: "Latest assistant reply",
+      },
+    ];
+
+    render(
+      <Messages
+        items={items}
+        threadId="thread-1"
+        workspaceId="ws-1"
+        isThinking={false}
+        openTargets={[]}
+        selectedOpenAppId=""
+        onRollbackThread={onRollbackThread}
+      />,
+    );
+
+    expect(screen.getAllByRole("button", { name: "Rewind to here" })).toHaveLength(1);
+  });
+
+  it("does not trigger rewind when confirmation is cancelled", async () => {
+    askMock.mockResolvedValueOnce(false);
+    const onRollbackThread = vi.fn();
+    const items: ConversationItem[] = [
+      {
+        id: "assistant-turn-1",
+        turnId: "turn-1",
+        kind: "message",
+        role: "assistant",
+        text: "First assistant reply",
+      },
+      {
+        id: "assistant-turn-2",
+        turnId: "turn-2",
+        kind: "message",
+        role: "assistant",
+        text: "Latest assistant reply",
+      },
+    ];
+
+    render(
+      <Messages
+        items={items}
+        threadId="thread-1"
+        workspaceId="ws-1"
+        isThinking={false}
+        openTargets={[]}
+        selectedOpenAppId=""
+        onRollbackThread={onRollbackThread}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Rewind to here" }));
+
+    await waitFor(() => {
+      expect(askMock).toHaveBeenCalledTimes(1);
+    });
+    expect(onRollbackThread).not.toHaveBeenCalled();
+  });
+
+  it("shows a loading state on the rewind button while rollback is pending", async () => {
+    let resolveRollback: (() => void) | null = null;
+    const onRollbackThread = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveRollback = resolve;
+        }),
+    );
+    const items: ConversationItem[] = [
+      {
+        id: "assistant-turn-1",
+        turnId: "turn-1",
+        kind: "message",
+        role: "assistant",
+        text: "First assistant reply",
+      },
+      {
+        id: "assistant-turn-2",
+        turnId: "turn-2",
+        kind: "message",
+        role: "assistant",
+        text: "Latest assistant reply",
+      },
+    ];
+
+    render(
+      <Messages
+        items={items}
+        threadId="thread-1"
+        workspaceId="ws-1"
+        isThinking={false}
+        openTargets={[]}
+        selectedOpenAppId=""
+        onRollbackThread={onRollbackThread}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Rewind to here" }));
+
+    await waitFor(() => {
+      expect(onRollbackThread).toHaveBeenCalledWith("turn-1", 1);
+    });
+    expect(
+      screen
+        .getByRole("button", { name: "Rewinding conversation" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+
+    await act(async () => {
+      resolveRollback?.();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen
+          .getByRole("button", { name: "Rewind to here" })
+          .hasAttribute("disabled"),
+      ).toBe(false);
+    });
   });
 
   it("opens linked review thread when clicking thread link", () => {
