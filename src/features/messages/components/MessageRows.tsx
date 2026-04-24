@@ -457,6 +457,18 @@ export const MessageRow = memo(function MessageRow({
     if (!onFork || isForking || isRewinding) {
       return;
     }
+    const confirmed = await ask(
+      "This will create a new thread from this point in the conversation history and leave the current thread unchanged.",
+      {
+        title: "Fork thread?",
+        kind: "info",
+        okLabel: "Fork",
+        cancelLabel: "Cancel",
+      },
+    );
+    if (!confirmed) {
+      return;
+    }
     const result = onFork();
     if (!(result instanceof Promise)) {
       return;
@@ -467,7 +479,7 @@ export const MessageRow = memo(function MessageRow({
     } finally {
       setIsForking(false);
     }
-  }, [isForking, onFork]);
+  }, [isForking, isRewinding, onFork]);
 
   const handleRollback = useCallback(async () => {
     if (!onRollback || isForking || isRewinding) {

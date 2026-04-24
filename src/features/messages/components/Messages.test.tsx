@@ -252,7 +252,7 @@ describe("Messages", () => {
     selection?.removeAllRanges();
   });
 
-  it("renders fork on only the latest assistant message and calls the fork handler", () => {
+  it("renders fork on only the latest assistant message and calls the fork handler", async () => {
     const onForkThread = vi.fn();
     const items: ConversationItem[] = [
       {
@@ -290,7 +290,20 @@ describe("Messages", () => {
     const forkButtons = screen.getAllByRole("button", { name: "Fork thread" });
     expect(forkButtons).toHaveLength(1);
     fireEvent.click(forkButtons[0] as Element);
-    expect(onForkThread).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(askMock).toHaveBeenCalledWith(
+        "This will create a new thread from this point in the conversation history and leave the current thread unchanged.",
+        expect.objectContaining({
+          title: "Fork thread?",
+          kind: "info",
+          okLabel: "Fork",
+          cancelLabel: "Cancel",
+        }),
+      );
+    });
+    await waitFor(() => {
+      expect(onForkThread).toHaveBeenCalledTimes(1);
+    });
 
     const messages = Array.from(container.querySelectorAll(".message"));
     expect(messages).toHaveLength(3);
@@ -331,7 +344,9 @@ describe("Messages", () => {
     const forkButton = screen.getByRole("button", { name: "Fork thread" });
     fireEvent.click(forkButton);
 
-    expect(onForkThread).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(onForkThread).toHaveBeenCalledTimes(1);
+    });
     expect(
       screen.getByRole("button", { name: "Forking thread" }).hasAttribute("disabled"),
     ).toBe(true);
@@ -345,6 +360,38 @@ describe("Messages", () => {
         screen.getByRole("button", { name: "Fork thread" }).hasAttribute("disabled"),
       ).toBe(false);
     });
+  });
+
+  it("does not trigger fork when confirmation is cancelled", async () => {
+    askMock.mockResolvedValueOnce(false);
+    const onForkThread = vi.fn();
+    const items: ConversationItem[] = [
+      {
+        id: "msg-latest-assistant",
+        kind: "message",
+        role: "assistant",
+        text: "Latest assistant reply",
+      },
+    ];
+
+    render(
+      <Messages
+        items={items}
+        threadId="thread-1"
+        workspaceId="ws-1"
+        isThinking={false}
+        openTargets={[]}
+        selectedOpenAppId=""
+        onForkThread={onForkThread}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Fork thread" }));
+
+    await waitFor(() => {
+      expect(askMock).toHaveBeenCalledTimes(1);
+    });
+    expect(onForkThread).not.toHaveBeenCalled();
   });
 
   it("hides the fork action while the thread is processing", () => {
